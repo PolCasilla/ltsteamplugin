@@ -136,6 +136,47 @@ function api_manifest.load_api_manifest()
     return apis
 end
 
+function api_manifest.add_custom_api(payload)
+    if not payload or type(payload.name) ~= "string" or type(payload.url) ~= "string" then
+        return { success = false, error = "Invalid payload: name and url are required" }
+    end
+
+    local path = paths.backend_path(config.API_JSON_FILE)
+    local text = ""
+    if fs.exists(path) then
+        text = utils.read_text(path)
+    end
+
+    local data = { api_list = {} }
+    if text ~= "" then
+        local ok, parsed = pcall(utils.decode_json, text)
+        if ok and type(parsed) == "table" and type(parsed.api_list) == "table" then
+            data = parsed
+        end
+    end
+
+    local new_api = {
+        name = payload.name,
+        url = payload.url,
+        success_code = payload.success_code or 200,
+        unavailable_code = payload.unavailable_code or 404,
+        enabled = true
+    }
+    
+    if payload.api_key and payload.api_key ~= "" then
+        new_api.api_key = payload.api_key
+    end
+
+    table.insert(data.api_list, new_api)
+
+    local new_text = utils.encode_json(data)
+    local formatted = utils.normalize_manifest_text(new_text)
+    utils.write_text(path, formatted)
+    
+    logger.log("LuaTools: Added custom API: " .. payload.name)
+    return { success = true }
+end
+
 function api_manifest.get_api_list()
     local success, apis = pcall(api_manifest.load_api_manifest)
     if not success then

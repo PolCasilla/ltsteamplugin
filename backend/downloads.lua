@@ -196,13 +196,43 @@ function downloads.start_add_via_luatools(appid)
         for _, api in ipairs(apis) do
             local name = api.name or "Unknown"
             local template = api.url or ""
+            local success_code = tonumber(api.success_code) or 200
+
             if string.find(template, "<moapikey>") then
                 if not morrenus_api_key or morrenus_api_key == "" then goto continue end
                 template = template:gsub("<moapikey>", morrenus_api_key)
             end
-            target_url = template:gsub("<appid>", tostring(appid))
-            target_name = name
-            break
+            if string.find(template, "<apikey>") then
+                if not api.api_key or api.api_key == "" then goto continue end
+                template = template:gsub("<apikey>", api.api_key)
+            end
+            
+            local url = template:gsub("<appid>", tostring(appid))
+            
+            local success = false
+            if string.lower(name) == "morrenus" then
+                local status_url = "https://hubcapmanifest.com/api/v1/status/" .. tostring(appid) .. "?api_key=" .. tostring(morrenus_api_key)
+                local s_resp = http_client.get(status_url, { headers = { ["User-Agent"] = config.USER_AGENT }, timeout = 5 })
+                if s_resp and s_resp.status == success_code then
+                    success = true
+                end
+            else
+                local resp = http_client.head(url, { headers = { ["User-Agent"] = config.USER_AGENT }, timeout = 5 })
+                if resp and resp.status == success_code then
+                    success = true
+                else
+                    local get_resp = http_client.get(url, { headers = { ["User-Agent"] = config.USER_AGENT }, timeout = 5 })
+                    if get_resp and get_resp.status == success_code then
+                        success = true
+                    end
+                end
+            end
+            
+            if success then
+                target_url = url
+                target_name = name
+                break
+            end
             ::continue::
         end
         if not target_url then error("Not available on any API") end
@@ -258,6 +288,12 @@ function downloads.check_apis_for_app(appid)
             end
             template = template:gsub("<moapikey>", morrenus_api_key)
         end
+        if string.find(template, "<apikey>") then
+            if not api.api_key or api.api_key == "" then
+                goto continue
+            end
+            template = template:gsub("<apikey>", api.api_key)
+        end
 
         local url = template:gsub("<appid>", tostring(appid))
         local available = false
@@ -275,8 +311,19 @@ function downloads.check_apis_for_app(appid)
                     available = true
                 end
             else
-                local resp = http_client.get(url, { headers = { ["User-Agent"] = config.USER_AGENT }, timeout = 5 })
+                local success = false
+                local resp = http_client.head(url, { headers = { ["User-Agent"] = config.USER_AGENT }, timeout = 5 })
                 if resp and resp.status == success_code then
+                    success = true
+                else
+                    -- Fallback to GET if HEAD fails
+                    local get_resp = http_client.get(url, { headers = { ["User-Agent"] = config.USER_AGENT }, timeout = 5 })
+                    if get_resp and get_resp.status == success_code then
+                        success = true
+                    end
+                end
+                
+                if success then
                     available = true
                 end
             end

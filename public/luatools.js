@@ -1246,6 +1246,178 @@
     }
   }
 
+  function showCustomApiModal() {
+    try {
+      const old = document.querySelector(".luatools-custom-api-overlay");
+      if (old) old.remove();
+    } catch (_) {}
+
+    ensureLuaToolsStyles();
+    ensureFontAwesome();
+
+    const overlay = document.createElement("div");
+    overlay.className = "luatools-custom-api-overlay";
+    overlay.style.cssText =
+      "position:fixed;inset:0;background:rgba(0,0,0,0.8);backdrop-filter:blur(12px);z-index:99999;display:flex;align-items:center;justify-content:center;";
+
+    const modal = document.createElement("div");
+    const colors = getThemeColors();
+    modal.style.cssText = `background:${colors.modalBg};color:${colors.text};border:1px solid ${colors.border};border-radius:16px;width:500px;padding:28px 32px;box-shadow:0 24px 80px rgba(0,0,0,.65), 0 0 0 1px ${colors.shadowRgba};animation:slideUp 0.12s ease-out;`;
+
+    const title = document.createElement("div");
+    title.style.cssText = `font-size:22px;font-weight:600;margin-bottom:8px;color:${colors.text};`;
+    title.textContent = lt("Add Custom API");
+
+    const desc = document.createElement("div");
+    desc.style.cssText = `font-size:14px;color:${colors.textSecondary};margin-bottom:20px;line-height:1.5;`;
+    desc.innerHTML = lt("Enter the custom API details below. You MUST include <code>&lt;appid&gt;</code> in the URL where the Game ID goes, and optionally <code>&lt;apikey&gt;</code> if an API key is required.");
+
+    const body = document.createElement("div");
+    body.style.cssText = "display:flex;flex-direction:column;gap:16px;margin-bottom:24px;";
+
+    function createInputGroup(labelText, placeholder, type = "text") {
+      const wrap = document.createElement("div");
+      wrap.style.cssText = "display:flex;flex-direction:column;gap:6px;";
+      const lbl = document.createElement("label");
+      lbl.style.cssText = `font-size:13px;font-weight:600;color:${colors.text};`;
+      lbl.textContent = labelText;
+      const input = document.createElement("input");
+      input.type = type;
+      input.placeholder = placeholder;
+      input.style.cssText = `width:100%;padding:10px 12px;background:rgba(0,0,0,0.2);border:1px solid ${colors.borderRgba};border-radius:8px;color:${colors.text};font-size:14px;outline:none;transition:border-color 0.2s;box-sizing:border-box;`;
+      input.onfocus = () => (input.style.borderColor = colors.accent);
+      input.onblur = () => (input.style.borderColor = colors.borderRgba);
+      wrap.appendChild(lbl);
+      wrap.appendChild(input);
+      return { wrap, input };
+    }
+
+    const nameField = createInputGroup("API Name", "My Custom API");
+    const urlField = createInputGroup("API URL", "https://example.com/download?id=<appid>&key=<apikey>");
+    
+    body.appendChild(nameField.wrap);
+    body.appendChild(urlField.wrap);
+
+    const toggleWrap = document.createElement("div");
+    toggleWrap.style.cssText = "display:flex;align-items:center;gap:10px;margin-top:8px;cursor:pointer;";
+    
+    const checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.style.cssText = `width:16px;height:16px;accent-color:${colors.accent};cursor:pointer;`;
+    
+    const toggleLabel = document.createElement("span");
+    toggleLabel.style.cssText = `font-size:14px;color:${colors.text};`;
+    toggleLabel.textContent = lt("Require API Key");
+
+    toggleWrap.appendChild(checkbox);
+    toggleWrap.appendChild(toggleLabel);
+    
+    const apiKeyField = createInputGroup("API Key", "Enter your API key here");
+    apiKeyField.wrap.style.display = "none";
+
+    toggleWrap.onclick = function(e) {
+      if (e.target !== checkbox) checkbox.checked = !checkbox.checked;
+      apiKeyField.wrap.style.display = checkbox.checked ? "flex" : "none";
+    };
+
+    body.appendChild(toggleWrap);
+    body.appendChild(apiKeyField.wrap);
+
+    const btnRow = document.createElement("div");
+    btnRow.style.cssText = "display:flex;justify-content:flex-end;gap:12px;margin-top:24px;";
+
+    const cancelBtn = document.createElement("button");
+    cancelBtn.textContent = lt("Cancel");
+    cancelBtn.style.cssText = `padding:8px 16px;background:transparent;border:1px solid ${colors.borderRgba};border-radius:8px;color:${colors.text};font-size:14px;font-weight:500;cursor:pointer;transition:all 0.2s ease;`;
+    cancelBtn.onmouseover = () => (cancelBtn.style.background = `rgba(255,255,255,0.1)`);
+    cancelBtn.onmouseout = () => (cancelBtn.style.background = "transparent");
+    cancelBtn.onclick = () => overlay.remove();
+
+    const saveBtn = document.createElement("button");
+    saveBtn.textContent = lt("Save API");
+    saveBtn.style.cssText = `padding:8px 24px;background:${colors.accent};border:none;border-radius:8px;color:#fff;font-size:14px;font-weight:600;cursor:pointer;transition:transform 0.1s, filter 0.2s;`;
+    saveBtn.onmouseover = () => (saveBtn.style.filter = "brightness(1.1)");
+    saveBtn.onmouseout = () => (saveBtn.style.filter = "none");
+    saveBtn.onmousedown = () => (saveBtn.style.transform = "scale(0.96)");
+    saveBtn.onmouseup = () => (saveBtn.style.transform = "scale(1)");
+
+    saveBtn.onclick = function() {
+      const name = nameField.input.value.trim();
+      const url = urlField.input.value.trim();
+      const needsKey = checkbox.checked;
+      const apiKey = apiKeyField.input.value.trim();
+
+      if (!name || !url) {
+        ShowLuaToolsAlert("Error", lt("Name and URL are required."));
+        return;
+      }
+      
+      try {
+        const dummyUrl = url.replace("<appid>", "123").replace("<apikey>", "abc");
+        const parsedUrl = new URL(dummyUrl);
+        if (parsedUrl.protocol !== "http:" && parsedUrl.protocol !== "https:") {
+          ShowLuaToolsAlert("Error", lt("URL must start with http:// or https://"));
+          return;
+        }
+      } catch (e) {
+        ShowLuaToolsAlert("Error", lt("Please enter a valid URL."));
+        return;
+      }
+
+      if (!url.includes("<appid>")) {
+        ShowLuaToolsAlert("Error", lt("URL must contain <appid> placeholder."));
+        return;
+      }
+      if (needsKey && !url.includes("<apikey>")) {
+        ShowLuaToolsAlert("Error", lt("URL must contain <apikey> when Require API Key is checked."));
+        return;
+      }
+      if (needsKey && !apiKey) {
+        ShowLuaToolsAlert("Error", lt("Please enter an API Key."));
+        return;
+      }
+
+      saveBtn.textContent = lt("Saving...");
+      saveBtn.disabled = true;
+      saveBtn.style.opacity = "0.7";
+
+      Millennium.callServerMethod("luatools", "AddCustomApi", {
+        name: name,
+        url: url,
+        api_key: needsKey ? apiKey : "",
+        contentScriptQuery: ""
+      }).then(function(res) {
+        try {
+          const payload = typeof res === "string" ? JSON.parse(res) : res;
+          if (payload && payload.success) {
+            overlay.remove();
+            ShowLuaToolsAlert("Success", lt("Custom API added successfully!"));
+          } else {
+            saveBtn.textContent = lt("Save API");
+            saveBtn.disabled = false;
+            saveBtn.style.opacity = "1";
+            ShowLuaToolsAlert("Error", payload.error || "Failed to save API.");
+          }
+        } catch (e) {
+          saveBtn.textContent = lt("Save API");
+          saveBtn.disabled = false;
+          saveBtn.style.opacity = "1";
+          ShowLuaToolsAlert("Error", e.toString());
+        }
+      });
+    };
+
+    btnRow.appendChild(cancelBtn);
+    btnRow.appendChild(saveBtn);
+
+    modal.appendChild(title);
+    modal.appendChild(desc);
+    modal.appendChild(body);
+    modal.appendChild(btnRow);
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
+  }
+
   function showSettingsPopup() {
     if (
       document.querySelector(".luatools-settings-overlay") ||
@@ -1406,6 +1578,12 @@
           "menu.settings",
           "Settings",
         );
+        const customApiBtn = createIconButton(
+          "lt-settings-custom-api",
+          "fa-solid fa-code-branch",
+          "menu.customApi",
+          "Custom API",
+        );
         const closeBtn = createIconButton(
           "lt-settings-close",
           "fa-xmark",
@@ -1415,6 +1593,16 @@
 
         // Check if we are on a game page
         const isGamePage = window.location.href.includes("/app/");
+
+        if (customApiBtn) {
+          customApiBtn.addEventListener("click", function (e) {
+            e.preventDefault();
+            try {
+              overlay.remove();
+            } catch (_) { }
+            showCustomApiModal();
+          });
+        }
 
         const removeBtn = document.createElement("a");
         removeBtn.id = "lt-settings-remove-lua";
@@ -6441,7 +6629,7 @@
                         ": " +
                         source.name,
                       );
-                      startDirectDownload(appid, source.url, source.name);
+                      startDirectDownload(appid, available, 0);
                     } else {
                       // Multiple sources, let user select
                       showSourceSelectionModal(appid, available);
@@ -6460,7 +6648,11 @@
                 });
             };
 
-            const startDirectDownload = function (appid, url, apiName) {
+            const startDirectDownload = function (appid, availableSources, index = 0) {
+              const source = availableSources[index];
+              const url = source.url;
+              const apiName = source.name;
+
               const performDownload = function () {
                 runState.inProgress = true;
                 runState.appid = appid;
@@ -6470,8 +6662,13 @@
                 if (overlay) {
                   // Reset for progress
                   const status = overlay.querySelector(".luatools-status");
-                  if (status)
-                    status.textContent = lt("Initializing download...");
+                  if (status) {
+                    if (index > 0) {
+                        status.textContent = lt("Failed on {previous}. Trying {current}...").replace("{previous}", availableSources[index-1].name).replace("{current}", apiName);
+                    } else {
+                        status.textContent = lt("Initializing download...");
+                    }
+                  }
                   const progressWrap = overlay.querySelector(
                     ".luatools-progress-wrap",
                   );
@@ -6498,7 +6695,17 @@
                     contentScriptQuery: "",
                   },
                 );
-                startPolling(appid);
+                
+                const onFailedCallback = function(errMsg) {
+                    if (index + 1 < availableSources.length) {
+                        backendLog("LuaTools: Fast download failed on " + apiName + " (" + errMsg + "). Trying next API: " + availableSources[index+1].name);
+                        setTimeout(function() {
+                            startDirectDownload(appid, availableSources, index + 1);
+                        }, 1500);
+                    }
+                };
+                
+                startPolling(appid, onFailedCallback);
               };
 
               if (apiName && apiName.toLowerCase().includes("morrenus")) {
@@ -6667,7 +6874,7 @@
                     apiList.style.flexDirection = "";
                     apiList.innerHTML = ""; // Clear selection buttons
                     if (status) status.style.display = ""; // Restore status text
-                    startDirectDownload(appid, source.url, source.name);
+                    startDirectDownload(appid, [source], 0);
                   };
 
                   apiList.appendChild(btn);
@@ -6738,7 +6945,7 @@
   ); // Changed from true to false (bubble phase instead of capture phase)
 
   // Poll backend for progress and update progress bar and text
-  function startPolling(appid) {
+  function startPolling(appid, onFailedCallback) {
     let done = false;
     let lastCheckedApi = null;
     let successfulApi = null; // Track which API successfully found the file
@@ -7193,6 +7400,10 @@
               clearInterval(timer);
               runState.inProgress = false;
               runState.appid = null;
+              
+              if (onFailedCallback) {
+                  onFailedCallback(st.error || "Unknown error");
+              }
             }
           } catch (_) { }
         });
@@ -7243,6 +7454,24 @@
     originalReplaceState.apply(history, arguments);
     setTimeout(checkUrlChange, 100);
   };
+
+  // Pre-fetch settings quietly to ensure background values (like fastDownload) are populated immediately,
+  // and apply themes immediately once settings load.
+  function bootSettings() {
+      if (typeof Millennium === "undefined" || typeof Millennium.callServerMethod !== "function") {
+          setTimeout(bootSettings, 200);
+          return;
+      }
+      Promise.all([
+          loadThemes(),
+          fetchSettingsConfig()
+      ]).then(function() {
+          if (typeof ensureLuaToolsStyles === "function") ensureLuaToolsStyles();
+      }).catch(function(e) {
+          try { backendLog("LuaTools: Boot fetchSettingsConfig failed: " + String(e)); } catch(_) {}
+      });
+  }
+  bootSettings();
 
   // Use MutationObserver to catch dynamically added content
   // Heavily optimized and throttled version to avoid blocking gamepad

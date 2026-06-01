@@ -2,22 +2,22 @@
 -- All exported functions return JSON-encoded strings, mirroring the Python backend's json.dumps() returns.
 -- This is required because Millennium's Lua bridge does not deep-serialize nested Lua tables.
 
-local cjson       = require("json")
-local m_utils     = require("utils")
-local logger      = require("plugin_logger")
-local millennium  = require("millennium")
-local fs          = require("fs")
-local http_client = require("http_client")
-local paths       = require("paths")
-local steam_utils = require("steam_utils")
-local utils       = require("plugin_utils")
-local locales_mod = require("locales.manager")
+local cjson            = require("json")
+local m_utils          = require("utils")
+local logger           = require("plugin_logger")
+local millennium       = require("millennium")
+local fs               = require("fs")
+local http_client      = require("http_client")
+local paths            = require("paths")
+local steam_utils      = require("steam_utils")
+local utils            = require("plugin_utils")
+local locales_mod      = require("locales.manager")
 
-local api_manifest    = require("api_manifest")
-local downloads       = require("downloads")
-local fixes           = require("fixes")
+local api_manifest     = require("api_manifest")
+local downloads        = require("downloads")
+local fixes            = require("fixes")
 local settings_manager = require("settings.manager")
-local auto_update     = require("auto_update")
+local auto_update      = require("auto_update")
 
 -- ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -134,7 +134,7 @@ _G["Logger.error"] = Logger.error
 -- Every function returns a JSON string, matching the Python backend exactly.
 
 function GetPluginDir()
-    return paths.get_plugin_dir()   -- plain string, matches Python
+    return paths.get_plugin_dir() -- plain string, matches Python
 end
 
 function InitApis()
@@ -199,6 +199,19 @@ function GetApiList()
     return json_ok(res)
 end
 
+function AddCustomApi(api_key, contentScriptQuery, name, url)
+    -- JS passes: { api_key, contentScriptQuery, name, url }
+    -- Reconstruct the payload object for api_manifest
+    local payload = {
+        name = tostring(name or ""),
+        url = tostring(url or ""),
+        api_key = tostring(api_key or "")
+    }
+    local ok, res = pcall(api_manifest.add_custom_api, payload)
+    if not ok then return json_err(res) end
+    return json_ok(res)
+end
+
 function CancelAddViaLuaTools(appid)
     -- No-op cancel stub; download is synchronous in Lua
     return json_ok({ success = true })
@@ -208,14 +221,14 @@ function CheckApisForApp(appid)
     if type(appid) == "table" then appid = appid.appid end
     local ok, res = pcall(downloads.check_apis_for_app, tonumber(appid))
     if not ok then return json_err(res) end
-    
+
     -- Ensure empty arrays encode as [] and not {}
     if res and type(res.results) == "table" and #res.results == 0 then
         -- Serialize manually or inject cjson.empty_array
         local success_json = res.success and "true" or "false"
         return '{"success":' .. success_json .. ',"results":[]}'
     end
-    
+
     return json_ok(res)
 end
 
@@ -229,7 +242,7 @@ function GetMorrenusStats(api_key, force_refresh)
     local endpoint = "https://hubcapmanifest.com/api/v1/user/stats?api_key=" .. api_key
     local ok, resp = pcall(http_client.get, endpoint, { timeout = 10 })
     if ok and resp and resp.status == 200 then
-        return resp.body  -- already JSON string
+        return resp.body -- already JSON string
     end
     return json_err("request failed")
 end
@@ -238,15 +251,16 @@ function StartAddViaLuaToolsFromUrl(apiName, appid, contentScriptQuery, url)
     -- Millennium's IPC bridge sorts JS object keys alphabetically and passes their values as positional arguments.
     -- The JS passes: { apiName: ..., appid: ..., contentScriptQuery: "", url: ... }
     -- So the Lua signature MUST be (apiName, appid, contentScriptQuery, url)
-    
-    logger.log("StartAddViaLuaToolsFromUrl CALLED: appid=" .. tostring(appid) .. ", url=" .. tostring(url) .. ", apiName=" .. tostring(apiName))
-    
+
+    logger.log("StartAddViaLuaToolsFromUrl CALLED: appid=" ..
+    tostring(appid) .. ", url=" .. tostring(url) .. ", apiName=" .. tostring(apiName))
+
     local ok, res = pcall(downloads.start_add_via_luatools_from_url, appid, url, apiName)
-    if not ok then 
+    if not ok then
         logger.warn("StartAddViaLuaToolsFromUrl CRASHED inside pcall: " .. tostring(res))
-        return json_err(res) 
+        return json_err(res)
     end
-    
+
     return json_ok(res)
 end
 
@@ -256,7 +270,8 @@ function GetIconDataUrl()
     if fs.exists(icon_path) then
         local content = m_utils.read_file(icon_path)
         if content then
-            return json_ok({ success = true, dataUrl = "data:image/png;base64," .. (m_utils.base64_encode and m_utils.base64_encode(content) or "") })
+            return json_ok({ success = true, dataUrl = "data:image/png;base64," ..
+            (m_utils.base64_encode and m_utils.base64_encode(content) or "") })
         end
     end
     return json_ok({ success = false, error = "icon not found" })
@@ -332,13 +347,13 @@ function ApplyGameFix(appid, contentScriptQuery, downloadUrl, fixType, gameName,
     -- Millennium's IPC bridge sorts JS object keys alphabetically and passes their values as positional arguments.
     -- The JS passes: { appid, contentScriptQuery, downloadUrl, fixType, gameName, installPath }
     -- So the Lua signature MUST be (appid, contentScriptQuery, downloadUrl, fixType, gameName, installPath)
-    
+
     local ok, res = pcall(fixes.apply_game_fix,
         tonumber(appid), tostring(downloadUrl or ""),
         tostring(installPath or ""), tostring(fixType or ""), tostring(gameName or ""))
-    if not ok then 
+    if not ok then
         logger.warn("ApplyGameFix CRASHED: " .. tostring(res))
-        return json_err(res) 
+        return json_err(res)
     end
     return json_ok(res)
 end
@@ -425,7 +440,7 @@ end
 function OpenExternalUrl(url)
     if type(url) == "table" then url = url.url end
     url = tostring(url or "")
-    if not (url:sub(1,7) == "http://" or url:sub(1,8) == "https://") then
+    if not (url:sub(1, 7) == "http://" or url:sub(1, 8) == "https://") then
         return json_err("Invalid URL")
     end
     local is_win = (m_utils.getenv("OS") or ""):find("Windows") ~= nil
@@ -455,7 +470,25 @@ function GetSettingsConfig()
 end
 
 function GetThemes()
-    return json_ok({ success = true, themes = {} })
+    local themes_json_path = fs.join(paths.get_plugin_dir(), "public", "themes", "themes.json")
+    local themes_list = {}
+
+    if fs.exists(themes_json_path) then
+        local success, data = pcall(cjson.decode, utils.read_text(themes_json_path))
+        if success and type(data) == "table" then
+            for _, item in ipairs(data) do
+                if type(item) == "table" and item.value then
+                    table.insert(themes_list, item)
+                end
+            end
+        else
+            logger.warn("GetThemes failed to decode themes.json")
+        end
+    else
+        logger.warn("GetThemes: themes.json not found")
+    end
+
+    return json_ok({ success = true, themes = themes_list })
 end
 
 function ApplySettingsChanges(changes)
@@ -548,7 +581,7 @@ end
 -- ── Return lifecycle table ────────────────────────────────────────────────────
 
 return {
-    on_load           = on_load,
-    on_unload         = on_unload,
+    on_load            = on_load,
+    on_unload          = on_unload,
     on_frontend_loaded = on_frontend_loaded,
 }

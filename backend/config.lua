@@ -26,7 +26,7 @@ local config = {
 
     UPDATE_CHECK_INTERVAL_SECONDS = 2 * 60 * 60, -- 2 hours
 
-    USER_AGENT = "discord(dot)gg/luatools",
+    USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
 
     LOADED_APPS_FILE = "loadedappids.txt",
     APPID_LOG_FILE = "appidlogs.txt",

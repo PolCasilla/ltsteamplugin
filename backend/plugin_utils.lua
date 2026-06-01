@@ -30,6 +30,11 @@ function utils.decode_json(text)
     if success then return data else return {} end
 end
 
+function utils.encode_json(data)
+    local success, content = pcall(cjson.encode, data)
+    if success then return content else return "{}" end
+end
+
 function utils.write_json(path, data)
     local success, content = pcall(cjson.encode, data)
     if not success then
