@@ -527,16 +527,12 @@ end
 
 function GetThemes()
     local themes_json_path = fs.join(paths.get_plugin_dir(), "public", "themes", "themes.json")
-    local themes_dict = {}
+    local themes_array = {}
 
     if fs.exists(themes_json_path) then
         local success, data = pcall(cjson.decode, utils.read_text(themes_json_path))
         if success and type(data) == "table" then
-            for _, item in ipairs(data) do
-                if type(item) == "table" and item.value then
-                    themes_dict[item.value] = item
-                end
-            end
+            themes_array = data
         else
             logger.warn("GetThemes failed to decode themes.json")
         end
@@ -544,7 +540,7 @@ function GetThemes()
         logger.warn("GetThemes: themes.json not found")
     end
 
-    return json_ok({ success = true, themes = themes_dict })
+    return json_ok({ success = true, themes = themes_array })
 end
 
 function ApplySettingsChanges(changes)
