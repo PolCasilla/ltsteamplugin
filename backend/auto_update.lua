@@ -102,9 +102,19 @@ end
 function auto_update.restart_steam()
     local is_windows = m_utils.getenv("OS") == "Windows_NT"
     if is_windows then
-        local script_path = paths.backend_path("restart_steam.cmd")
+        local script_path = paths.backend_path("restart_steam_task.ps1")
         if fs.exists(script_path) then
-            m_utils.exec('start /b cmd /C "' .. script_path .. '"')
+            m_utils.exec(
+                'cmd.exe /C start "" /b powershell.exe -NoProfile -NonInteractive ' ..
+                '-ExecutionPolicy Bypass -WindowStyle Hidden ' ..
+                '-File "' .. script_path .. '"'
+            )
+            return true
+        end
+        -- Fallback to old batch script if PS1 doesn't exist
+        local cmd_path = paths.backend_path("restart_steam.cmd")
+        if fs.exists(cmd_path) then
+            m_utils.exec('start /b cmd /C "' .. cmd_path .. '"')
             return true
         end
     else

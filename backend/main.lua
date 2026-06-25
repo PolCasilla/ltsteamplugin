@@ -377,7 +377,7 @@ end
 function DeleteLuaToolsForApp(appid)
     if type(appid) == "table" then appid = appid.appid end
     local base = steam_utils.detect_steam_install_path()
-    local target_dir = fs.join(base, "config", "stplug-in")
+    local target_dir = fs.join(base, "config", "lua")
     local candidates = {
         fs.join(target_dir, tostring(appid) .. ".lua"),
         fs.join(target_dir, tostring(appid) .. ".lua.disabled"),
@@ -451,7 +451,7 @@ end
 function GetInstalledLuaScripts()
     local ok, res = pcall(function()
         local base = steam_utils.detect_steam_install_path()
-        local target_dir = fs.join(base, "config", "stplug-in")
+        local target_dir = fs.join(base, "config", "lua")
         local scripts = {}
         local ok2, files = pcall(fs.list, target_dir)
         if ok2 and files then

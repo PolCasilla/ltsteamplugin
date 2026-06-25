@@ -1,13 +1,1 @@
-{
-  "version": 1,
-  "values": {
-    "general": {
-      "donateKeys": true,
-      "useSteamLanguage": true,
-      "morrenusApiKey": "",
-      "language": "en",
-      "fastDownload": false,
-      "theme": "original"
-    }
-  }
-}
+{"version":1,"values":{"general":{"fastDownload":false,"donateKeys":true,"useSteamLanguage":true,"language":"en","theme":"original","morrenusApiKey":"smm_d020127d946276eca43b1a201ca1ac5a4a3860da4d40b4324b22ea0a188f44bc07850e26b8ec9ebde54cb73ed18240e7"}}}
