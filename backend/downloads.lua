@@ -70,7 +70,7 @@ end
 function downloads._finalize_install_lua(appid, extract_dir, dest_path, api_name)
     _set_download_state(appid, { status = "processing" })
     local base_path = steam_utils.detect_steam_install_path()
-    local target_dir = fs.join(base_path, "config", "stplug-in")
+    local target_dir = fs.join(base_path, "config", "lua")
     if not fs.exists(target_dir) then fs.create_directories(target_dir) end
     
     local depot_cache = fs.join(base_path, "depotcache")
