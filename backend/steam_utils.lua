@@ -23,11 +23,51 @@ function steam_utils.has_lua_for_app(appid)
     local base_path = steam_utils.detect_steam_install_path()
     if not base_path or base_path == "" then return false end
 
+    -- Check new path first
     local lua_dir = fs.join(base_path, "config", "lua")
     local lua_file = fs.join(lua_dir, tostring(appid) .. ".lua")
     local disabled_file = fs.join(lua_dir, tostring(appid) .. ".lua.disabled")
+    if fs.exists(lua_file) or fs.exists(disabled_file) then return true end
 
-    return fs.exists(lua_file) or fs.exists(disabled_file)
+    -- Fallback: check old path (pre-migration)
+    local old_dir = fs.join(base_path, "config", "stplug-in")
+    local old_file = fs.join(old_dir, tostring(appid) .. ".lua")
+    local old_disabled = fs.join(old_dir, tostring(appid) .. ".lua.disabled")
+    return fs.exists(old_file) or fs.exists(old_disabled)
+end
+
+function steam_utils.migrate_old_lua_scripts()
+    local base_path = steam_utils.detect_steam_install_path()
+    if not base_path or base_path == "" then return end
+
+    local old_dir = fs.join(base_path, "config", "stplug-in")
+    if not fs.exists(old_dir) then return end  -- nothing to migrate
+
+    local new_dir = fs.join(base_path, "config", "lua")
+    if not fs.exists(new_dir) then fs.create_directories(new_dir) end
+
+    local ok, files = pcall(fs.list, old_dir)
+    if not ok or not files then return end
+
+    local migrated = 0
+    for _, entry in ipairs(files) do
+        local name = entry.name or ""
+        if name:match("^%d+%.lua$") or name:match("^%d+%.lua%.disabled$") then
+            local src = entry.path or fs.join(old_dir, name)
+            local dst = fs.join(new_dir, name)
+            if not fs.exists(dst) then  -- don't overwrite newer scripts
+                local content = m_utils.read_file(src)
+                if content then
+                    m_utils.write_file(dst, content)
+                    migrated = migrated + 1
+                end
+            end
+        end
+    end
+
+    if migrated > 0 then
+        logger.log("LuaTools: Migrated " .. tostring(migrated) .. " Lua scripts from config/stplug-in/ to config/lua/")
+    end
 end
 
 function steam_utils.get_game_install_path_response(appid)

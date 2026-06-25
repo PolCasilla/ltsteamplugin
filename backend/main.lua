@@ -76,6 +76,9 @@ local function on_load()
     local ok_s, err_s = pcall(settings_manager.init_settings)
     if not ok_s then logger.warn("settings init failed: " .. tostring(err_s)) end
 
+    -- Migrate any existing Lua scripts from old config/stplug-in/ to config/lua/
+    pcall(steam_utils.migrate_old_lua_scripts)
+
     local ok_u, upd_msg = pcall(auto_update.apply_pending_update_if_any)
     if ok_u and upd_msg and upd_msg ~= "" then
         api_manifest.store_last_message(upd_msg)
@@ -382,6 +385,10 @@ function DeleteLuaToolsForApp(appid)
         fs.join(target_dir, tostring(appid) .. ".lua"),
         fs.join(target_dir, tostring(appid) .. ".lua.disabled"),
     }
+    -- Also clean up old path if any scripts remain there
+    local old_dir = fs.join(base, "config", "stplug-in")
+    table.insert(candidates, fs.join(old_dir, tostring(appid) .. ".lua"))
+    table.insert(candidates, fs.join(old_dir, tostring(appid) .. ".lua.disabled"))
     local deleted = {}
     for _, p in ipairs(candidates) do
         if fs.exists(p) then
@@ -453,6 +460,7 @@ function GetInstalledLuaScripts()
         local base = steam_utils.detect_steam_install_path()
         local target_dir = fs.join(base, "config", "lua")
         local scripts = {}
+        local seen = {}
         local ok2, files = pcall(fs.list, target_dir)
         if ok2 and files then
             for _, entry in ipairs(files) do
@@ -460,6 +468,7 @@ function GetInstalledLuaScripts()
                 if name:match("%.lua$") or name:match("%.lua%.disabled$") then
                     local aid = name:match("^(%d+)%.")
                     if aid then
+                        seen[tonumber(aid)] = true
                         table.insert(scripts, {
                             appid      = tonumber(aid),
                             gameName   = "Unknown Game (" .. aid .. ")",
@@ -471,6 +480,28 @@ function GetInstalledLuaScripts()
                 end
             end
         end
+
+        -- Also scan old path for any scripts not yet migrated
+        local old_dir = fs.join(base, "config", "stplug-in")
+        local ok3, old_files = pcall(fs.list, old_dir)
+        if ok3 and old_files then
+            for _, entry in ipairs(old_files) do
+                local name = entry.name or ""
+                if name:match("%.lua$") or name:match("%.lua%.disabled$") then
+                    local aid = name:match("^(%d+)%.")
+                    if aid and not seen[tonumber(aid)] then
+                        table.insert(scripts, {
+                            appid      = tonumber(aid),
+                            gameName   = "Unknown Game (" .. aid .. ")",
+                            filename   = name,
+                            isDisabled = name:match("%.disabled$") ~= nil,
+                            path       = entry.path or ""
+                        })
+                    end
+                end
+            end
+        end
+
         return { success = true, scripts = scripts }
     end)
     if not ok then return json_err(res) end
